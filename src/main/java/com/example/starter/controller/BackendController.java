@@ -18,4 +18,9 @@ public class BackendController {
         String formattedDate = dateFormat.format(date);
         return "Current Date and Time: " + formattedDate;
     }
+
+    @GetMapping()
+    public String getHello() {
+        return "hello Karnali!";
+    }
 }
