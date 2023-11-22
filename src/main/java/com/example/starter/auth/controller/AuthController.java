@@ -21,6 +21,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(@RequestBody User userRequest) {
         return cognitoService.registerUser(
+                userRequest.getFirstName(),
+                userRequest.getMiddleName(),
+                userRequest.getLastName(),
+                userRequest.getDateOfBirth(),
                 userRequest.getEmail(),
                 userRequest.getPassword()
         );
