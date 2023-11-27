@@ -1,5 +1,7 @@
 package com.example.starter.auth.service;
 
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWTParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,8 @@ import java.util.Map;
 @Service
 public class CognitoService {
 
+    private static final String COGNITO_IDENTITY_POOL_URL = "https://cognito-idp.%s.amazonaws.com/%s";
+
     @Autowired
     private CognitoIdentityProviderClient cognitoClient;
 
@@ -25,7 +29,14 @@ public class CognitoService {
     @Value("${aws.cognito.default.userGroup}")
     private String cognitoUserGroup;
 
-    public ResponseEntity<String> registerUser(String firstName, String middleName, String lastName,String dateOfBirth, String email, String password) {
+    @Value("${aws.cognito.region}")
+    private String awsRegion;
+
+    public String getCognitoIdentityPoolUrl() {
+        return String.format(COGNITO_IDENTITY_POOL_URL,awsRegion,cognitoUserPoolId);
+    }
+
+    public ResponseEntity<String> registerUser(String firstName, String middleName, String lastName, String dateOfBirth, String email, String password) {
         try {
             // Specify email attribute
             AttributeType firstNameAttribute = AttributeType.builder().name("given_name").value(firstName).build();
@@ -82,7 +93,7 @@ public class CognitoService {
             AdminInitiateAuthRequest authRequest = AdminInitiateAuthRequest.builder()
                     .userPoolId(cognitoUserPoolId)
                     .clientId(cognitoClientId)
-                    .authFlow(AuthFlowType.ADMIN_USER_PASSWORD_AUTH)
+                    .authFlow(AuthFlowType.ADMIN_NO_SRP_AUTH)
                     .authParameters(Map.of(
                             "USERNAME", email,
                             "PASSWORD", password))
@@ -91,12 +102,26 @@ public class CognitoService {
             AdminInitiateAuthResponse authResponse = cognitoClient.adminInitiateAuth(authRequest);
 
             if (authResponse.authenticationResult() != null) {
-                return ResponseEntity.ok().body("Login successful. Token: " + authResponse.authenticationResult().idToken());
+                return ResponseEntity.ok().body("Login successful. Token: " + authResponse.authenticationResult().idToken()); // or get accesstoken
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed.");
             }
         } catch (CognitoIdentityProviderException e) {
             return ResponseEntity.badRequest().body(e.awsErrorDetails().errorMessage());
         }
+    }
+
+    public boolean validateToken(String accessToken) {
+        try {
+            JWTClaimsSet claimsSet = JWTParser.parse(accessToken).getJWTClaimsSet();
+            if (claimsSet.getIssuer().equals(getCognitoIdentityPoolUrl())) {
+                if (claimsSet.getClaim("token_use").equals("id")) { // can be changed to access token
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
