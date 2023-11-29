@@ -19,8 +19,13 @@ public class BackendController {
         return "Current Date and Time: " + formattedDate;
     }
 
-    @GetMapping()
-    public String getHello() {
-        return "hello Karnali!";
+    @GetMapping("/admin")
+    public String getAdmin() {
+        return "Hello Admin!";
+    }
+
+    @GetMapping("/user")
+    public String getUser() {
+        return "Hello User!";
     }
 }

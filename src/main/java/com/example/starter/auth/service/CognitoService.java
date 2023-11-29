@@ -1,5 +1,6 @@
 package com.example.starter.auth.service;
 
+import com.example.starter.auth.entity.User;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,9 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.*;
 
+import java.text.ParseException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -38,7 +42,6 @@ public class CognitoService {
 
     public ResponseEntity<String> registerUser(String firstName, String middleName, String lastName, String dateOfBirth, String email, String password) {
         try {
-            // Specify email attribute
             AttributeType firstNameAttribute = AttributeType.builder().name("given_name").value(firstName).build();
             AttributeType middleNameAttribute = AttributeType.builder().name("middle_name").value(middleName).build();
             AttributeType lastNameAttribute = AttributeType.builder().name("family_name").value(lastName).build();
@@ -46,7 +49,6 @@ public class CognitoService {
             AttributeType emailAttribute = AttributeType.builder().name("email").value(email).build();
             AttributeType emailVerifiedAttribute = AttributeType.builder().name("email_verified").value("true").build();
 
-            // Create the SignUpRequest with email attribute and other necessary details
             SignUpRequest signUpRequest = SignUpRequest.builder()
                     .clientId(cognitoClientId)
                     .username(email)
@@ -54,7 +56,6 @@ public class CognitoService {
                     .userAttributes(firstNameAttribute, middleNameAttribute, lastNameAttribute, dateOfBirthAttribute, emailAttribute)
                     .build();
 
-            // Call Cognito to sign up the user
             SignUpResponse signUpResponse = cognitoClient.signUp(signUpRequest);
 
             AdminUpdateUserAttributesRequest updateRequest = AdminUpdateUserAttributesRequest.builder()
@@ -65,7 +66,6 @@ public class CognitoService {
 
             cognitoClient.adminUpdateUserAttributes(updateRequest);
 
-            // Confirm the user to trigger email verification
             AdminConfirmSignUpRequest confirmSignUpRequest = AdminConfirmSignUpRequest.builder()
                     .userPoolId(cognitoUserPoolId)
                     .username(email)
@@ -102,7 +102,7 @@ public class CognitoService {
             AdminInitiateAuthResponse authResponse = cognitoClient.adminInitiateAuth(authRequest);
 
             if (authResponse.authenticationResult() != null) {
-                return ResponseEntity.ok().body("Login successful. Token: " + authResponse.authenticationResult().idToken()); // or get accesstoken
+                return ResponseEntity.ok().body(authResponse.authenticationResult().accessToken()); // or get accesstoken
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Login failed.");
             }
@@ -115,7 +115,7 @@ public class CognitoService {
         try {
             JWTClaimsSet claimsSet = JWTParser.parse(accessToken).getJWTClaimsSet();
             if (claimsSet.getIssuer().equals(getCognitoIdentityPoolUrl())) {
-                if (claimsSet.getClaim("token_use").equals("id")) { // can be changed to access token
+                if (claimsSet.getClaim("token_use").equals("access")) { // can be changed to 'access'/'id' token/id
                     return true;
                 }
             }
@@ -124,4 +124,66 @@ public class CognitoService {
         }
         return false;
     }
+
+    public User getUserInfo(String accessToken) {
+        try {
+            GetUserRequest getUserRequest = GetUserRequest.builder()
+                    .accessToken(accessToken)
+                    .build();
+            GetUserResponse response = cognitoClient.getUser(getUserRequest);
+            User user = getUser(response);
+            return user;
+        } catch (NotAuthorizedException e) {
+            System.out.println("Not authorized: " + e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private JWTClaimsSet getClaimSet(String token) throws ParseException {
+        return JWTParser.parse(token).getJWTClaimsSet();
+    }
+
+    public List<String> extractRoles(String token) throws ParseException {
+        JWTClaimsSet claimsSet = getClaimSet(token);
+
+        List<String> roles = (List<String>) claimsSet.getClaims().get("cognito:groups");
+        return roles != null ? roles : Collections.emptyList();
+    }
+
+    public String extractUserName(String token) throws ParseException {
+        JWTClaimsSet claimsSet = getClaimSet(token);
+        return claimsSet.getClaims().get("username").toString();
+    }
+
+    private static User getUser(GetUserResponse response) {
+        User user = new User();
+        for (AttributeType attributeType : response.userAttributes()) {
+            System.out.println(attributeType);
+            switch (attributeType.name()) {
+                case "sub":
+                    user.setUserName(attributeType.value());
+                case "email":
+                    user.setEmail(attributeType.value());
+                    break;
+                case "given_name":
+                    user.setFirstName(attributeType.value());
+                    break;
+                case "middle_name":
+                    user.setMiddleName(attributeType.value());
+                    break;
+                case "family_name":
+                    user.setLastName(attributeType.value());
+                    break;
+                case "birthdate":
+                    user.setDateOfBirth(attributeType.value());
+                    break;
+            }
+        }
+        return user;
+    }
+
+
 }
