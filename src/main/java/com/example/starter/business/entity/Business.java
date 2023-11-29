@@ -23,7 +23,10 @@ public class Business {
     @Column(name = "name")
     private String name;
 
-    @ManyToOne
+    @Column(name ="user_id")
+    private String userId;
+
+    @OneToOne
     @JoinColumn(name = "address_id")
     private Address address;
 
