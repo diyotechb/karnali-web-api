@@ -21,7 +21,7 @@ public class WebSecurityConfig {
         http.addFilterBefore(cognitoTokenValidationFilter, UsernamePasswordAuthenticationFilter.class);
         http
                 .authorizeHttpRequests((requests) -> requests
-                        .requestMatchers("/auth/register","/auth/login", "/now").permitAll()
+                        .requestMatchers("/auth/register","/auth/login", "/now", "business/all", "business/{id}").permitAll()
                         .requestMatchers("/user").hasRole("USER")
                         .requestMatchers("/admin").hasRole("ADMIN")
                         .anyRequest().authenticated()
