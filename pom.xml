@@ -86,7 +86,25 @@
 				</configuration>
 			</plugin>
 		</plugins>
+
 		<finalName>karnali-web</finalName>
 	</build>
 
+	<profiles>
+		<profile>
+			<id>dev</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<activated.profile>dev</activated.profile>
+			</properties>
+		</profile>
+		<profile>
+			<id>dev</id>
+			<properties>
+				<activated.profile>prod</activated.profile>
+			</properties>
+		</profile>
+	</profiles>
 </project>
