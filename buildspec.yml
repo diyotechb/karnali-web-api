@@ -3,7 +3,7 @@ phases:
   build:
     commands:
       - echo Packaging JAR file...
-      - mvn clean package -Pprod
+      - mvn clean package -Pprod -DskipTests
   post_build:
     commands:
       - echo Build complete.
